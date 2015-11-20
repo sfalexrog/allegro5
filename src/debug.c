@@ -325,7 +325,7 @@ void _al_trace_suffix(const char *msg, ...)
       #ifdef ALLEGRO_ANDROID
       else {
          (void)__android_log_print(ANDROID_LOG_INFO, "allegro",
-            static_trace_buffer);
+            "%s", static_trace_buffer);
       }
       #endif
       static_trace_buffer[0] = '\0';
