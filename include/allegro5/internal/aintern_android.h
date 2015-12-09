@@ -185,7 +185,7 @@ void _al_android_add_clipboard_functions(ALLEGRO_DISPLAY_INTERFACE *vt);
 	JNI_FUNC_EVALUATOR(ret, cls, name, params, ALLEGRO_ANDROID_PACKAGE_NAME)
 
 /* Functions called from Java code. */
-extern JNI_FUNC(bool, AllegroActivity, nativeOnCreate, (JNIEnv *env, jobject obj));
+extern JNI_FUNC(bool, AllegroActivity, nativeOnCreate, (JNIEnv *env, jobject obj, jobject arguments));
 extern JNI_FUNC(void, AllegroActivity, nativeOnDestroy, (JNIEnv *env, jobject obj));
 extern JNI_FUNC(void, AllegroActivity, nativeOnOrientationChange, (JNIEnv *env,
          jobject obj, int orientation, bool init));

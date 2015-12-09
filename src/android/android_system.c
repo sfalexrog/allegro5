@@ -29,6 +29,8 @@
 #include "allegro5/allegro_opengl.h"
 #include "allegro5/internal/aintern_opengl.h"
 
+#include <string.h>
+
 ALLEGRO_DEBUG_CHANNEL("android")
 
 struct system_data_t {
@@ -52,6 +54,9 @@ struct system_data_t {
    ALLEGRO_USTR *apk_path;
    ALLEGRO_USTR *model;
    ALLEGRO_USTR *manufacturer;
+
+   int arg_count;
+   char **arg_vector;
 
    void *user_lib;
    int (*user_main)(int argc, char **argv);
@@ -114,6 +119,14 @@ static void android_cleanup(bool uninstall_system)
       return;
    }
 
+   int i;
+
+   /* Now's probably a good time to clean up our argsList */
+   for(i = 0; system_data.arg_vector[i]; ++i) {
+      al_free(system_data.arg_vector[i]);
+   }
+   al_free(system_data.arg_vector);
+
    if (uninstall_system) {
       /* I don't think android calls our atexit() stuff since we're in a shared lib
          so make sure al_uninstall_system is called */
@@ -129,8 +142,10 @@ static void android_cleanup(bool uninstall_system)
 
 static void *android_app_trampoline(ALLEGRO_THREAD *thr, void *arg)
 {
-   const int argc = 1;
-   const char *argv[2] = {system_data.user_lib, NULL};
+   /*const int argc = 1;
+   const char *argv[2] = {system_data.user_lib, NULL};*/
+   const int argc = system_data.arg_count;
+   const char **argv = system_data.arg_vector;
    int ret;
 
    (void)thr;
@@ -165,12 +180,13 @@ jint JNI_OnLoad(JavaVM* vm, void* reserved)
    return JNI_VERSION_1_4;
 }
 
-JNI_FUNC(bool, AllegroActivity, nativeOnCreate, (JNIEnv *env, jobject obj))
+JNI_FUNC(bool, AllegroActivity, nativeOnCreate, (JNIEnv *env, jobject obj, jobject arguments))
 {
    ALLEGRO_SYSTEM_ANDROID *na_sys = NULL;
    jclass iae;
    jclass aisc;
    jclass asc;
+   int i;
 
    ALLEGRO_DEBUG("entered nativeOnCreate");
 
@@ -220,6 +236,27 @@ JNI_FUNC(bool, AllegroActivity, nativeOnCreate, (JNIEnv *env, jobject obj))
    ALLEGRO_DEBUG("apk_path: %s", al_cstr(system_data.apk_path));
    ALLEGRO_DEBUG("model: %s", al_cstr(system_data.model));
    ALLEGRO_DEBUG("manufacturer: %s", al_cstr(system_data.manufacturer));
+
+   ALLEGRO_DEBUG("copy argument list");
+   int len = (*env)->GetArrayLength(env, arguments);
+   system_data.arg_count = 0;
+   system_data.arg_vector = (char**)al_malloc((len + 1) * sizeof(char*)); // argsList[0] is always system_data.user_lib_name
+   system_data.arg_vector[system_data.arg_count++] = strdup(al_cstr(system_data.user_lib_name));
+   ALLEGRO_DEBUG(" user_lib_name: %s", system_data.arg_vector[0]);
+   for (i = 0; i < len; ++i) {
+      const char* utf;
+      char* arg = NULL;
+      jstring astring = (*env)->GetObjectArrayElement(env, arguments, i);
+      if (astring) {
+         utf = (*env)->GetStringUTFChars(env, astring, 0);
+         if (utf) {
+            arg = strdup(utf);
+            ALLEGRO_WARN(" argument[%d]: %s", i, arg);
+         }
+         system_data.arg_vector[system_data.arg_count++] = arg;
+      }
+   }
+   system_data.arg_vector[system_data.arg_count] = NULL;
 
    ALLEGRO_DEBUG("creating ALLEGRO_SYSTEM_ANDROID struct");
    na_sys = system_data.system = (ALLEGRO_SYSTEM_ANDROID*)al_malloc(sizeof *na_sys);
